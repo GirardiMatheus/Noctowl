@@ -40,6 +40,11 @@ set_defaults() {
 
 # Função para log
 log() {
+     # Cria o arquivo de log se não existir
+    local log_dir=$(dirname "$NOCTOWL_LOG_FILE")
+    [ -d "$log_dir" ] || mkdir -p "$log_dir"
+    [ -f "$NOCTOWL_LOG_FILE" ] || touch "$NOCTOWL_LOG_FILE"
+
     local message="$1"
     local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
     
@@ -124,7 +129,7 @@ check_memory() {
     buffers_cache=$(echo $mem_info | awk '{print $4}')
     
     # Calcula memória realmente usada (considerando cache/buffers como disponível)
-    actual_used=$((used_mem - buffers_cache))
+    actual_used=$(( used_mem - (buffers_cache > used_mem ? used_mem : buffers_cache) ))
     mem_percent=$((actual_used * 100 / total_mem))
     
     if [ "$mem_percent" -ge "$NOCTOWL_ALERT_MEM" ]; then
