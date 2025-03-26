@@ -40,19 +40,24 @@ set_defaults() {
 
 # Função para log
 log() {
-     # Cria o arquivo de log se não existir
-    local log_dir=$(dirname "$NOCTOWL_LOG_FILE")
-    [ -d "$log_dir" ] || mkdir -p "$log_dir"
-    [ -f "$NOCTOWL_LOG_FILE" ] || touch "$NOCTOWL_LOG_FILE"
-
     local message="$1"
     local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
     
-    # Log no console
+    # Log to console
     echo "[$timestamp] $message"
     
-    # Log para arquivo se habilitado
-    if [ "$NOCTOWL_LOG_ENABLED" = "true" ]; then
+    # Log to file if enabled and path is valid
+    if [ "$NOCTOWL_LOG_ENABLED" = "true" ] && [ -n "$NOCTOWL_LOG_FILE" ]; then
+        # Create directory if it doesn't exist
+        local log_dir=$(dirname "$NOCTOWL_LOG_FILE")
+        mkdir -p "$log_dir" 2>/dev/null
+        
+        # Create file if it doesn't exist
+        touch "$NOCTOWL_LOG_FILE" 2>/dev/null || {
+            echo "[$timestamp] WARNING: Failed to create log file at $NOCTOWL_LOG_FILE" >&2
+            return
+        }
+        
         echo "[$timestamp] $message" >> "$NOCTOWL_LOG_FILE"
     fi
 }
@@ -81,8 +86,8 @@ send_alert() {
     
     # Envia para Telegram se habilitado
     if [ "$NOCTOWL_TELEGRAM_ENABLED" = "true" ] && \
-       [ -n "$NOCTOWL_TELEGRAM_BOT_TOKEN" ] && \
-       [ -n "$NOCTOWL_TELEGRAM_CHAT_ID" ]; then
+        [ -n "$NOCTOWL_TELEGRAM_BOT_TOKEN" ] && \
+        [ -n "$NOCTOWL_TELEGRAM_CHAT_ID" ]; then
         curl -s -X POST "https://api.telegram.org/bot$NOCTOWL_TELEGRAM_BOT_TOKEN/sendMessage" \
         -d chat_id="$NOCTOWL_TELEGRAM_CHAT_ID" \
         -d text="$subject\n$message" && \
@@ -130,14 +135,19 @@ check_memory() {
     
     # Calcula memória realmente usada (considerando cache/buffers como disponível)
     actual_used=$(( used_mem - (buffers_cache > used_mem ? used_mem : buffers_cache) ))
-    mem_percent=$((actual_used * 100 / total_mem))
+    mem_percent=$(( (actual_used * 100 + total_mem/2) / total_mem ))
     
+    if (( total_mem == 0 )); then
+        log "ERRO: Não foi possível determinar a memória total"
+        return 1
+    fi
+
     if [ "$mem_percent" -ge "$NOCTOWL_ALERT_MEM" ]; then
         send_alert "Uso de memória está em ${mem_percent}% (${actual_used}MB de ${total_mem}MB) (Limite: ${NOCTOWL_ALERT_MEM}%)" "Alerta de Memória"
         return 2
     fi
     
-    log "Uso de Memória: ${mem_percent}% (${actual_used}MB de ${total_mem}MB) (OK)"
+    log "Memória: ${mem_percent}% (${actual_used}MB de ${total_mem}MB) [Buffers/Cache: ${buffers_cache}MB] (OK)"
     return 0
 }
 
