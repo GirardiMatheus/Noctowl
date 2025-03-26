@@ -1,6 +1,6 @@
 <div align="center">
   <h1>
-    <img src="./assets/noctowl.svg" width="40" height="40" alt="Noctowl" style="vertical-align: middle;">
+    <img src="./assets/Noctowl.svg" width="40" height="40" alt="Noctowl" style="vertical-align: middle;">
     Noctowl
   </h1>
   <p>Monitoramento Inteligente de Recursos de Servidor</p>
